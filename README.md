@@ -1,5 +1,3 @@
-Maintainer tools
-================
+## Management tool for Blade Runner Insight
 
-Set of tools for the maintenance of the Blade Runner Insight website.
-
+A tool to maintain the static files for the br-insight.com website.
