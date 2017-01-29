@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ###############################################################################
-# Description: Library maintenance tool for Blade Runner Insight
+# Description: Management tool for Blade Runner Insight
 # Author:      Tor Inge Skaar
 # License:     MIT
 ###############################################################################
@@ -10,6 +10,7 @@ import os
 import re
 import random
 import textwrap
+import requests
 from datetime import datetime
 from shutil import copyfile
 from glob import glob
@@ -31,10 +32,11 @@ usage = """
 Blade Runner Insight Manager
 
 Usage:
-    brim lib list
-    brim lib add ARTICLES...
-    brim lib reindex
+    brim library list
+    brim library add ARTICLES...
+    brim library reindex
     brim feature ARTICLE
+    brim minify FILE
 
 Options:
     -h --help   Show this help description
@@ -93,6 +95,21 @@ def wordcrop(content, length, suffix='...'):
         return content[:length].rsplit(' ', 1)[0]+suffix
 
 
+def minify(filepath):
+    url = 'https://cssminifier.com/raw'
+    path = os.path.split(filepath)
+    fname = os.path.splitext(path[1])
+    data = {'input': open(filepath, 'rb').read()}
+    r = requests.post(url, data=data)
+    if r.status_code == 200:
+        newf = path[0] + '/' + fname[0] + '.min' + fname[1]
+        with open(newf, 'w') as fp:
+            fp.write(r.text)
+    else:
+        print('WARNING: Web service returned http code: {}'
+              .format(r.status_code))
+
+
 # Add article by transform markdown source to html and apply template
 def add(articlelist, library):
     for article in tqdm(articlelist):
@@ -134,9 +151,10 @@ def add(articlelist, library):
         # Save article html
         save_html(template, apath + '/index.html')
 
-        # Add local CSS to article
+        # Add local CSS to article and minify it
         csstemplate = library + '/../assets/templates/article.css'
         copyfile(csstemplate, apath + '/article.css')
+        minify(apath + '/article.css')
 
         # Create cropped version of cover art for library index page
         coverimg = apath + '/cover.jpg'
@@ -283,6 +301,19 @@ def main():
             feature(random.choice(get_articles(library)), library)
         else:
             feature(args['ARTICLE'], library)
+
+    # Minify given CSS files
+    if args['minify']:
+        m = args['FILE']
+        if os.path.isdir(m):
+            for f in tqdm(glob(m + '/*.css')):
+                if not f.endswith('min.css'):
+                    minify(f)
+        elif os.path.isfile(m) and m.endswith('.css') and not \
+                m.endswith('.min.css'):
+            minify(m)
+        else:
+            exit('ERROR: Unable to minify {}'.format(m))
 
 
 if __name__ == "__main__":
